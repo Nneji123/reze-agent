@@ -70,7 +70,7 @@ class AIService:
             )
 
             # Create agent with model, tools, and system prompt
-            from src.prompts import REZE_INSTRUCTIONS, REZE_PERSONA
+            from src.services.prompt import REZE_INSTRUCTIONS, REZE_PERSONA
 
             agent = Agent(
                 model,

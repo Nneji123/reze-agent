@@ -99,9 +99,15 @@ class RAGService:
 
             # Stream response
             async with self.agent.run_stream(query) as result:
+                previous_text = ""
                 async for chunk in result.stream():
                     logger.debug(f"Streamed chunk length: {len(chunk)}")
-                    yield chunk
+                    # Calculate delta - only new content
+                    if len(chunk) > len(previous_text):
+                        delta = chunk[len(previous_text) :]
+                        if delta:  # Only yield if there's new content
+                            yield delta
+                    previous_text = chunk
 
             logger.info(f"Streaming completed for query length: {len(query)}")
 

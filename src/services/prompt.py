@@ -1,4 +1,4 @@
-"""Reze AI Agent - System prompts and configuration."""
+"""System prompts and configuration for Reze AI Agent."""
 
 # System Persona
 REZE_PERSONA = """

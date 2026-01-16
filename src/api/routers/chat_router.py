@@ -15,8 +15,8 @@ from src.api.schemas.chat import (
     ConversationHistoryResponse,
     ConversationsListResponse,
 )
-from src.prompts import REZE_INSTRUCTIONS
 from src.services.conversation import conversation_service
+from src.services.prompt import REZE_INSTRUCTIONS
 from src.services.rag import rag_service
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
