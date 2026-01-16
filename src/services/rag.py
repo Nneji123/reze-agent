@@ -13,7 +13,7 @@ from loguru import logger
 from pydantic_ai import Agent
 
 from src.services.ai import ai_service
-from src.services.memvid import memvid
+from src.services.memvid import memvid as memvid_service
 
 
 class RAGService:
@@ -99,9 +99,9 @@ class RAGService:
 
             # Stream response
             async with self.agent.run_stream(query) as result:
-                async for chunk in result:
-                    logger.debug(f"Streamed chunk length: {len(chunk.content)}")
-                    yield chunk.content
+                async for chunk in result.stream():
+                    logger.debug(f"Streamed chunk length: {len(chunk)}")
+                    yield chunk
 
             logger.info(f"Streaming completed for query length: {len(query)}")
 

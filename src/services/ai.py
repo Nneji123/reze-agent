@@ -122,9 +122,9 @@ class AIService:
             agent = self.get_agent()
 
             async with agent.run_stream(message) as result:
-                async for chunk in result:
-                    logger.debug(f"Streamed chunk length: {len(chunk.content)}")
-                    yield chunk.content
+                async for chunk in result.stream():
+                    logger.debug(f"Streamed chunk length: {len(chunk)}")
+                    yield chunk
 
             logger.info(f"Streaming completed for message length: {len(message)}")
 

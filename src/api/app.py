@@ -35,7 +35,7 @@ async def lifespan(app: FastAPI):
     try:
         # Initialize Memvid service (for RAG)
         logger.info("Initializing Memvid service...")
-        stats = await memvid.get_stats()
+        stats = memvid.get_stats()
         logger.info(f"Memvid service initialized: {stats}")
     except Exception as e:
         logger.error(f"Failed to initialize Memvid service: {e}")
