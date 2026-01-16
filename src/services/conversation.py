@@ -68,12 +68,15 @@ class ConversationService:
                 )
                 db_session.add(message)
                 await db_session.commit()
+                await db_session.refresh(message)
 
-            logger.debug(
-                f"Added {role} message to {conversation_id} ({username}): {content[:50]}..."
+            logger.info(
+                f"Added {role} message to {conversation_id} ({username}): {content[:50]}... (ID: {message.id})"
             )
         except Exception as e:
-            logger.error(f"Failed to add message: {e}")
+            logger.error(
+                f"Failed to add message to {conversation_id}: {e}", exc_info=True
+            )
             raise
 
     async def get_conversation_history(
@@ -103,6 +106,10 @@ class ConversationService:
                 result = await db_session.execute(stmt)
                 db_messages = result.scalars().all()
 
+                logger.info(
+                    f"Database query returned {len(db_messages)} total messages for {conversation_id}"
+                )
+
                 # Convert to ChatMessage objects
                 messages = [
                     ChatMessage(
@@ -113,14 +120,30 @@ class ConversationService:
                     for msg in db_messages
                 ]
 
-                # Apply limit if specified
-                if limit:
+                # Apply limit if specified (take most recent messages)
+                if limit and len(messages) > limit:
                     messages = messages[-limit:]
 
-                logger.info(f"Retrieved {len(messages)} messages for {conversation_id}")
+                # Log message breakdown for debugging
+                user_msgs = [m for m in messages if m.role == "user"]
+                assistant_msgs = [m for m in messages if m.role == "assistant"]
+                logger.info(
+                    f"Returning {len(messages)} messages for {conversation_id} "
+                    f"({len(user_msgs)} user, {len(assistant_msgs)} assistant, limit: {limit})"
+                )
+
+                if messages:
+                    logger.debug(
+                        f"Oldest message: {messages[0].role} at {messages[0].timestamp}, "
+                        f"Newest message: {messages[-1].role} at {messages[-1].timestamp}"
+                    )
+
                 return messages
         except Exception as e:
-            logger.error(f"Failed to get conversation history: {e}")
+            logger.error(
+                f"Failed to get conversation history for {conversation_id}: {e}",
+                exc_info=True,
+            )
             return []
 
     async def get_user_conversations(

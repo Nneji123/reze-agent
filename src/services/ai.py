@@ -69,8 +69,18 @@ class AIService:
                 provider=provider,
             )
 
+            # Log model configuration
+            logger.info(
+                f"OpenAIChatModel created for {settings.glm_model} "
+                f"with support for tool calling and streaming"
+            )
+
             # Create agent with model, tools, and system prompt
             from src.services.prompt import REZE_INSTRUCTIONS, REZE_PERSONA
+
+            logger.info(f"Registering {len(ALL_TOOLS)} tools with agent")
+            for tool in ALL_TOOLS:
+                logger.info(f"  - Tool: {tool.__name__}")
 
             agent = Agent(
                 model,
@@ -79,7 +89,29 @@ class AIService:
                 system_prompt=[REZE_PERSONA, REZE_INSTRUCTIONS],
             )
 
-            logger.success("GLM 4.7 agent created successfully")
+            logger.success(
+                f"GLM 4.7 agent created successfully with {len(ALL_TOOLS)} tools registered"
+            )
+
+            # Inspect agent configuration
+            logger.info("=== Agent Configuration Inspection ===")
+            logger.info(f"Agent name: {agent.name}")
+            logger.info(f"Model: {settings.glm_model}")
+            logger.info(f"Base URL: {settings.glm_base_url}")
+            logger.info(f"Registered tools count: {len(ALL_TOOLS)}")
+
+            # Verify tools are accessible
+            if hasattr(agent, "tools") and agent.tools:
+                logger.info(
+                    f"Tools attribute exists and contains {len(agent.tools)} items"
+                )
+                for tool_name, tool_func in agent.tools.items():
+                    logger.info(f"  - {tool_name}: {tool_func}")
+            else:
+                logger.warning("No tools attribute found or tools list is empty")
+
+            logger.info("=== End Agent Configuration Inspection ===")
+
             return agent
 
         except Exception as e:
@@ -98,6 +130,14 @@ class AIService:
         try:
             agent = self.get_agent()
             result = await agent.run(message)
+
+            # Log if tools were called
+            if hasattr(result, "tool_calls") and result.tool_calls:
+                logger.info(
+                    f"Agent called {len(result.tool_calls)} tools: {[tc.name for tc in result.tool_calls]}"
+                )
+            else:
+                logger.debug("No tools were called in this response")
 
             logger.info(f"Agent response generated for message length: {len(message)}")
             return result
@@ -120,11 +160,26 @@ class AIService:
         """
         try:
             agent = self.get_agent()
+            logger.debug(f"Streaming agent with message: '{message[:100]}...'")
 
             async with agent.run_stream(message) as result:
                 async for chunk in result.stream():
                     logger.debug(f"Streamed chunk length: {len(chunk)}")
                     yield chunk
+
+            # Check if tools were called after streaming
+            if hasattr(result, "all_messages"):
+                for msg in result.all_messages():
+                    if hasattr(msg, "tool_calls") and msg.tool_calls:
+                        logger.info(
+                            f"Tools called during streaming: {[tc.name for tc in msg.tool_calls]}"
+                        )
+            elif hasattr(result, "tool_calls") and result.tool_calls:
+                logger.info(
+                    f"Agent called {len(result.tool_calls)} tools during streaming: {[tc.name for tc in result.tool_calls]}"
+                )
+            else:
+                logger.debug("No tools were called during streaming")
 
             logger.info(f"Streaming completed for message length: {len(message)}")
 

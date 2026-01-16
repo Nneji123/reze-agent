@@ -28,7 +28,28 @@ class RAGService:
         """Initialize AI agent with tools."""
         try:
             self.agent = ai_service.get_agent()
+
+            # Verify agent has tools registered
+            logger.info("=== RAG Service Agent Verification ===")
+            logger.info(f"Agent type: {type(self.agent).__name__}")
+            logger.info(f"Agent name: {self.agent.name}")
+
+            if hasattr(self.agent, "tools"):
+                if self.agent.tools:
+                    logger.info(f"Agent has {len(self.agent.tools)} tools registered:")
+                    for tool_name in self.agent.tools.keys():
+                        logger.info(f"  - {tool_name}")
+                else:
+                    logger.warning("Agent tools attribute exists but is empty!")
+            else:
+                logger.warning("Agent does not have a tools attribute")
+
+            # Check model configuration
+            if hasattr(self.agent, "model"):
+                logger.info(f"Agent model: {self.agent.model}")
+
             logger.success("RAG service initialized with GLM 4.7 agent")
+            logger.info("=== End RAG Service Agent Verification ===")
         except Exception as e:
             logger.error(f"Failed to initialize RAG service: {e}")
             raise
@@ -80,42 +101,105 @@ class RAGService:
         k: int = 5,
     ) -> AsyncGenerator[str, None]:
         """Query with RAG and stream response.
-    
+
         Args:
             query: User's question or request
             conversation_history: List of previous messages for context
             use_rag: Whether to use RAG for context (default: True)
             k: Number of documents to retrieve (default: 5)
-    
+
         Yields:
             Response chunks as they're generated
         """
         try:
             context_docs = []
-    
+
             if use_rag:
                 context_docs = self._retrieve_documents(query, k=k)
                 logger.info(f"Retrieved {len(context_docs)} documents for RAG")
-    
-            if conversation_history:
-                prompt = query
+
+            # Build the prompt with conversation history
+            if conversation_history and len(conversation_history) > 0:
+                # Format conversation history as a string for the AI agent
+                logger.info(
+                    f"Using conversation history with {len(conversation_history)} messages"
+                )
+
+                # Log breakdown of messages
+                user_msgs = [m for m in conversation_history if m.get("role") == "user"]
+                assistant_msgs = [
+                    m for m in conversation_history if m.get("role") == "assistant"
+                ]
+                logger.info(
+                    f"History breakdown: {len(user_msgs)} user messages, {len(assistant_msgs)} assistant messages"
+                )
+
+                # Log first and last messages for context
+                if conversation_history:
+                    first_msg = conversation_history[0]
+                    last_msg = conversation_history[-1]
+                    logger.info(
+                        f"History span: First message ({first_msg.get('role')}) at {first_msg.get('timestamp', 'N/A')}, "
+                        f"Last message ({last_msg.get('role')}) at {last_msg.get('timestamp', 'N/A')}"
+                    )
+                    logger.debug(
+                        f"First message preview: {first_msg.get('content', '')[:100]}..."
+                    )
+                    if len(conversation_history) > 1:
+                        logger.debug(
+                            f"Last message preview: {last_msg.get('content', '')[:100]}..."
+                        )
+
+                # Format conversation history as a string that the AI agent can understand
+                history_text = "Here is our previous conversation:\n\n"
+                for msg in conversation_history:
+                    role = msg.get("role", "user").upper()
+                    content = msg.get("content", "")
+                    history_text += f"{role}: {content}\n\n"
+
+                # Add current query to the history
+                prompt = history_text + f"\n\nNow respond to this: {query}"
+
+                logger.info(
+                    f"Built prompt with conversation history (total length: {len(prompt)} chars)"
+                )
             else:
+                # No history, use the query directly
+                logger.info("No conversation history, using query directly")
                 prompt = query
-    
+
+            logger.info(f"Current query: '{query[:100]}...' (length: {len(query)})")
+            logger.debug(f"Prompt type: {type(prompt).__name__}, length: {len(prompt)}")
+
             async with self.agent.run_stream(prompt) as result:
                 previous_text = ""
+                total_chunks = 0
+                total_delta = 0
+
                 async for chunk in result.stream():
-                    logger.debug(f"Streamed chunk length: {len(chunk)}")
+                    total_chunks += 1
+                    logger.debug(
+                        f"Streamed chunk #{total_chunks}, cumulative length: {len(chunk)}"
+                    )
+
                     if len(chunk) > len(previous_text):
-                        delta = chunk[len(previous_text):]
+                        delta = chunk[len(previous_text) :]
                         if delta:
+                            total_delta += len(delta)
+                            logger.debug(f"Yielding delta of length: {len(delta)}")
                             yield delta
                         previous_text = chunk
-    
-            logger.info(f"Streaming completed for query length: {len(query)}")
-    
+
+            logger.info(
+                f"Streaming completed: {total_chunks} chunks, "
+                f"{total_delta} characters of new content, "
+                f"query length: {len(query)}"
+            )
+
         except Exception as e:
-            logger.error(f"RAG streaming failed: {e}")
+            logger.error(
+                f"RAG streaming failed for query '{query[:50]}...': {e}", exc_info=True
+            )
             raise
 
     def _retrieve_documents(

@@ -63,6 +63,7 @@ async def chat_message(request: ChatRequest):
             )
         else:
             conversation_id = request.conversation_id
+            logger.info(f"Using existing conversation: {conversation_id}")
 
         await conversation_service.add_message(
             conversation_id=conversation_id,
@@ -76,6 +77,8 @@ async def chat_message(request: ChatRequest):
             limit=20,
         )
 
+        logger.info(f"Retrieved {len(history)} messages from conversation history")
+
         conversation_context = []
         for msg in history:
             if msg.role in ["user", "assistant"]:
@@ -86,11 +89,22 @@ async def chat_message(request: ChatRequest):
                     }
                 )
 
+        logger.info(
+            f"Built conversation context with {len(conversation_context)} messages"
+        )
+        if conversation_context:
+            logger.debug(
+                f"Context preview: {conversation_context[0]['role']}: {conversation_context[0]['content'][:50]}..."
+            )
+
         async def stream_chat():
             """Stream agent response in real-time."""
             full_response = ""
 
             try:
+                logger.info(
+                    f"Starting stream with {len(conversation_context)} context messages"
+                )
                 async for chunk in rag_service.query_stream(
                     query=request.message,
                     conversation_history=conversation_context,
@@ -105,7 +119,10 @@ async def chat_message(request: ChatRequest):
                     content=full_response,
                 )
 
-                logger.info(f"Response generated for conversation {conversation_id}")
+                logger.info(
+                    f"Response generated for conversation {conversation_id} "
+                    f"(length: {len(full_response)} chars)"
+                )
 
             except Exception as e:
                 logger.error(f"Streaming error for conversation {conversation_id}: {e}")
