@@ -25,7 +25,6 @@ async def lifespan(app: FastAPI):
     logger.info("Starting Reze AI Agent application...")
 
     try:
-        # Initialize database schema
         logger.info("Initializing database schema...")
         await init_db()
         logger.info("Database schema initialized successfully")
@@ -33,7 +32,6 @@ async def lifespan(app: FastAPI):
         logger.error(f"Failed to initialize database schema: {e}")
 
     try:
-        # Initialize Memvid service (for RAG)
         logger.info("Initializing Memvid service...")
         stats = memvid.get_stats()
         logger.info(f"Memvid service initialized: {stats}")
@@ -65,17 +63,14 @@ async def health_check():
     }
 
 
-# Include routers
 app.include_router(chat_router)
 
-# Mount static files directory
 from pathlib import Path
 
 static_dir = Path(__file__).parent.parent / "static"
 app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
 
-# Serve index.html at root path
 @app.get("/")
 async def serve_chat_interface():
     """Serve chat interface HTML page."""

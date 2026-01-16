@@ -52,7 +52,6 @@ class RAGService:
         try:
             context_docs = []
 
-            # Retrieve context if RAG is enabled
             if use_rag:
                 context_docs = self._retrieve_documents(query, k=k)
                 logger.info(f"Retrieved {len(context_docs)} documents for RAG")
@@ -76,41 +75,45 @@ class RAGService:
     async def query_stream(
         self,
         query: str,
+        conversation_history: list = None,
         use_rag: bool = True,
         k: int = 5,
     ) -> AsyncGenerator[str, None]:
         """Query with RAG and stream response.
-
+    
         Args:
             query: User's question or request
+            conversation_history: List of previous messages for context
             use_rag: Whether to use RAG for context (default: True)
             k: Number of documents to retrieve (default: 5)
-
+    
         Yields:
             Response chunks as they're generated
         """
         try:
             context_docs = []
-
-            # Retrieve context if RAG is enabled
+    
             if use_rag:
                 context_docs = self._retrieve_documents(query, k=k)
                 logger.info(f"Retrieved {len(context_docs)} documents for RAG")
-
-            # Stream response
-            async with self.agent.run_stream(query) as result:
+    
+            if conversation_history:
+                prompt = query
+            else:
+                prompt = query
+    
+            async with self.agent.run_stream(prompt) as result:
                 previous_text = ""
                 async for chunk in result.stream():
                     logger.debug(f"Streamed chunk length: {len(chunk)}")
-                    # Calculate delta - only new content
                     if len(chunk) > len(previous_text):
-                        delta = chunk[len(previous_text) :]
-                        if delta:  # Only yield if there's new content
+                        delta = chunk[len(previous_text):]
+                        if delta:
                             yield delta
-                    previous_text = chunk
-
+                        previous_text = chunk
+    
             logger.info(f"Streaming completed for query length: {len(query)}")
-
+    
         except Exception as e:
             logger.error(f"RAG streaming failed: {e}")
             raise
@@ -165,7 +168,7 @@ class RAGService:
 
         for doc in documents:
             title = doc.get("title", "Untitled")
-            content = doc.get("text", "")[:500]  # Truncate long content
+            content = doc.get("text", "")[:500]
 
             context_part = f"## {title}\n{content}\n"
             context_parts.append(context_part)

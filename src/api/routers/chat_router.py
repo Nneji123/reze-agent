@@ -54,36 +54,51 @@ async def chat_message(request: ChatRequest):
     Returns StreamingResponse with real-time chunks
     """
     try:
-        # Get or create conversation
         if not request.conversation_id:
-            conversation_id = await conversation_service.create_conversation()
-            logger.info(f"Created new conversation: {conversation_id}")
+            conversation_id = await conversation_service.create_conversation(
+                username=request.username
+            )
+            logger.info(
+                f"Created new conversation: {conversation_id} for user: {request.username}"
+            )
         else:
             conversation_id = request.conversation_id
 
-        # Save user message
         await conversation_service.add_message(
             conversation_id=conversation_id,
             role="user",
             content=request.message,
+            username=request.username,
         )
 
-        # Async generator for streaming
+        history = await conversation_service.get_conversation_history(
+            conversation_id=conversation_id,
+            limit=20,
+        )
+
+        conversation_context = []
+        for msg in history:
+            if msg.role in ["user", "assistant"]:
+                conversation_context.append(
+                    {
+                        "role": msg.role,
+                        "content": msg.content,
+                    }
+                )
+
         async def stream_chat():
             """Stream agent response in real-time."""
             full_response = ""
 
             try:
-                # Stream response from RAG service
                 async for chunk in rag_service.query_stream(
                     query=request.message,
+                    conversation_history=conversation_context,
                     use_rag=True,
                 ):
-                    # Send each chunk to user
                     full_response += chunk
                     yield chunk
 
-                # Save assistant's response
                 await conversation_service.add_message(
                     conversation_id=conversation_id,
                     role="assistant",
@@ -98,14 +113,12 @@ async def chat_message(request: ChatRequest):
                 full_response += error_msg
                 yield error_msg
 
-                # Save error response
                 await conversation_service.add_message(
                     conversation_id=conversation_id,
                     role="assistant",
                     content=error_msg,
                 )
 
-        # Return streaming response
         return StreamingResponse(
             stream_chat(),
             media_type="text/plain",
@@ -122,26 +135,29 @@ async def chat_message(request: ChatRequest):
 
 
 @router.get(
-    "/conversations",
-    summary="List all conversations",
+    "/conversations/{username}",
+    summary="Get user conversations",
     response_model=ConversationsListResponse,
 )
-async def list_conversations():
+async def list_user_conversations(username: str):
     """
-    List all active conversation sessions.
+    List all conversations for a specific user.
 
-    Useful for debugging or managing multiple chat sessions.
-    Returns a list of conversation IDs.
+    Returns a list of conversation IDs with metadata.
     """
     try:
-        conversations = await conversation_service.list_conversations()
+        conversations = await conversation_service.get_user_conversations(
+            username=username
+        )
+
+        conversation_ids = [conv["conversation_id"] for conv in conversations]
 
         return ConversationsListResponse(
-            conversations=conversations,
-            total=len(conversations),
+            conversations=conversation_ids,
+            total=len(conversation_ids),
         )
     except Exception as e:
-        logger.error(f"Failed to list conversations: {e}")
+        logger.error(f"Failed to list conversations for {username}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

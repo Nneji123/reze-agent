@@ -18,9 +18,15 @@ class ChatRequest(BaseModel):
     calling tools as needed based on the conversation.
     """
 
+    username: str = Field(
+        ...,
+        description="Username identifier for the user",
+        min_length=1,
+        max_length=50,
+    )
     message: str = Field(
         ...,
-        description="User's message to the AI agent",
+        description="User's message to AI agent",
         min_length=1,
         max_length=10000,
     )
@@ -118,11 +124,54 @@ class ConversationDeletedResponse(BaseModel):
 
     conversation_id: str = Field(
         ...,
-        description="ID of the deleted conversation",
+        description="ID of deleted conversation",
         min_length=1,
         max_length=36,
     )
     deleted: bool = Field(
         ...,
         description="Confirmation that deletion was successful",
+    )
+
+
+class UserConversation(BaseModel):
+    """Represents a conversation with metadata."""
+
+    conversation_id: str = Field(
+        ...,
+        description="Unique conversation identifier",
+        min_length=1,
+        max_length=36,
+    )
+    created_at: datetime = Field(
+        ...,
+        description="Timestamp when conversation was created",
+    )
+    message_count: int = Field(
+        ...,
+        description="Total number of messages in conversation",
+        ge=0,
+    )
+    last_updated: Optional[datetime] = Field(
+        None,
+        description="Timestamp of last message in conversation",
+    )
+
+
+class UserConversationsResponse(BaseModel):
+    """Response schema for listing user conversations.
+
+    Returns a list of conversations for a specific user
+    with metadata like message count and timestamps.
+    """
+
+    conversations: List[UserConversation] = Field(
+        ...,
+        description="List of user's conversations with metadata",
+        min_items=0,
+    )
+    total: int = Field(
+        ...,
+        description="Total number of conversations for this user",
+        ge=0,
     )

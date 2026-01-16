@@ -30,14 +30,17 @@ class ConversationService:
         """Initialize conversation service."""
         logger.info("Conversation service initialized")
 
-    async def create_conversation(self) -> str:
+    async def create_conversation(self, username: str = "anonymous") -> str:
         """Create a new conversation with unique ID.
+
+        Args:
+            username: Username identifier for the conversation
 
         Returns:
             Unique conversation ID (UUID)
         """
         conversation_id = str(uuid.uuid4())
-        logger.info(f"Created new conversation: {conversation_id}")
+        logger.info(f"Created new conversation: {conversation_id} for user: {username}")
         return conversation_id
 
     async def add_message(
@@ -45,6 +48,7 @@ class ConversationService:
         conversation_id: str,
         role: str,
         content: str,
+        username: str = "anonymous",
     ) -> None:
         """Add a message to conversation history.
 
@@ -52,6 +56,7 @@ class ConversationService:
             conversation_id: Unique conversation identifier
             role: Message role ("user" or "assistant")
             content: Message content
+            username: Username identifier for the message
         """
         try:
             async with async_session_maker() as db_session:
@@ -59,12 +64,13 @@ class ConversationService:
                     conversation_id=conversation_id,
                     role=role,
                     content=content,
+                    username=username,
                 )
                 db_session.add(message)
                 await db_session.commit()
 
             logger.debug(
-                f"Added {role} message to {conversation_id}: {content[:50]}..."
+                f"Added {role} message to {conversation_id} ({username}): {content[:50]}..."
             )
         except Exception as e:
             logger.error(f"Failed to add message: {e}")
@@ -113,9 +119,58 @@ class ConversationService:
 
                 logger.info(f"Retrieved {len(messages)} messages for {conversation_id}")
                 return messages
-
         except Exception as e:
             logger.error(f"Failed to get conversation history: {e}")
+            return []
+
+    async def get_user_conversations(
+        self,
+        username: str,
+    ) -> List[dict]:
+        """Get all conversations for a specific user.
+
+        Args:
+            username: Username identifier
+
+        Returns:
+            List of conversation metadata with ID, message count, etc.
+        """
+        try:
+            from sqlalchemy import func, select
+
+            async with async_session_maker() as db_session:
+                # Get distinct conversation IDs for this user
+                stmt = (
+                    select(
+                        ConversationLog.conversation_id,
+                        func.min(ConversationLog.timestamp).label("created_at"),
+                        func.count(ConversationLog.id).label("message_count"),
+                        func.max(ConversationLog.timestamp).label("last_updated"),
+                    )
+                    .where(ConversationLog.username == username)
+                    .group_by(ConversationLog.conversation_id)
+                    .order_by(func.max(ConversationLog.timestamp).desc())
+                )
+
+                result = await db_session.execute(stmt)
+                conversations = result.all()
+
+                conversation_list = [
+                    {
+                        "conversation_id": conv.conversation_id,
+                        "created_at": conv.created_at,
+                        "message_count": conv.message_count,
+                        "last_updated": conv.last_updated,
+                    }
+                    for conv in conversations
+                ]
+
+                logger.info(
+                    f"Retrieved {len(conversation_list)} conversations for user {username}"
+                )
+                return conversation_list
+        except Exception as e:
+            logger.error(f"Failed to get user conversations: {e}")
             return []
 
     async def list_conversations(self) -> List[str]:

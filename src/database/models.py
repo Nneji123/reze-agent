@@ -32,6 +32,13 @@ class ConversationLog(Base):
 
     id = Column(Integer, primary_key=True, index=True, nullable=False)
 
+    username = Column(
+        String(50),  # Username identifier
+        index=True,
+        nullable=False,
+        comment="Username identifier for conversation",
+    )
+
     conversation_id = Column(
         String(36),  # UUID format
         index=True,
@@ -68,6 +75,7 @@ class ConversationLog(Base):
         """String representation of the model."""
         return (
             f"<ConversationLog(id={self.id}, "
+            f"username={self.username}, "
             f"conversation_id={self.conversation_id}, "
             f"role={self.role}, "
             f"timestamp={self.timestamp})>"

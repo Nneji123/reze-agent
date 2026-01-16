@@ -11,33 +11,50 @@ from pydantic_ai import RunContext
 class SendEmailInput(BaseModel):
     """Input for sending an email."""
 
-    to: EmailStr = Field(..., description="Recipient email address")
-    subject: str = Field(..., description="Email subject line")
-    content: str = Field(..., description="Email content (HTML or plain text)")
-    from_email: EmailStr = Field(None, description="Optional sender email address")
+    to: EmailStr = Field(
+        ...,
+        description="REQUIRED: The recipient's email address (e.g., john@example.com). Must be a valid email format.",
+    )
+    subject: str = Field(
+        ...,
+        description="REQUIRED: The subject line for the email. A clear, descriptive subject.",
+    )
+    content: str = Field(
+        ...,
+        description="REQUIRED: The email body content. Can be plain text or HTML format.",
+    )
+    from_email: EmailStr = Field(
+        None,
+        description="OPTIONAL: The sender's email address. If not provided, uses default sender.",
+    )
 
 
 class EmailStatusInput(BaseModel):
     """Input for checking email status."""
 
-    email_id: str = Field(..., description="The unique email ID from Resend")
+    email_id: str = Field(
+        ...,
+        description="REQUIRED: The unique email ID returned by Resend when the email was sent (e.g., 'abc123-xyz789'). Must be obtained from a previous send_email operation.",
+    )
 
 
 async def send_email(ctx: RunContext, data: SendEmailInput) -> str:
     """Send an email via Resend.com API.
 
-    This tool is called when the user wants to send an email.
-    You must have gathered the recipient email address, subject line, and
-    email content before calling this tool.
+    CALL THIS TOOL ONLY WHEN:
+    - User wants to send an email
+    - You have collected ALL required parameters (to, subject, content)
+    - User has confirmed the details are correct
 
-    Args:
-        to: Recipient's email address
-        subject: Email subject line
-        content: Email body content (HTML or plain text)
-        from_email: Optional sender email (uses default if not provided)
+    REQUIRED PARAMETERS (all must be present):
+    - to: Valid email address of recipient
+    - subject: Email subject line
+    - content: Email body text or HTML
 
-    Returns:
-        Confirmation message with email ID
+    OPTIONAL PARAMETERS:
+    - from_email: Sender email (skip if not provided)
+
+    DO NOT CALL THIS TOOL if any required parameter is missing. Ask the user for missing information first.
     """
     from src.services.resend import resend_service
 
@@ -57,14 +74,15 @@ async def send_email(ctx: RunContext, data: SendEmailInput) -> str:
 async def get_email_status(ctx: RunContext, data: EmailStatusInput) -> str:
     """Get the delivery status of a sent email.
 
-    This tool is called when the user asks about a specific email's
-    delivery status or tracking information.
+    CALL THIS TOOL ONLY WHEN:
+    - User asks about email delivery status
+    - User asks if an email was sent/delivered/bounced
+    - User provides a valid email_id
 
-    Args:
-        email_id: The unique email ID returned when the email was sent
+    REQUIRED PARAMETERS:
+    - email_id: The unique email ID from a previous send_email operation
 
-    Returns:
-        Current delivery status and relevant information
+    DO NOT CALL THIS TOOL without a valid email_id. If user doesn't have it, ask them to provide it.
     """
     from src.services.resend import resend_service
 
@@ -105,14 +123,15 @@ async def get_email_status(ctx: RunContext, data: EmailStatusInput) -> str:
 async def get_email_attachments(ctx: RunContext, data: EmailStatusInput) -> str:
     """Get attachments from a sent email.
 
-    This tool is called when the user wants to retrieve or list attachments
-    from a specific email that was sent.
+    CALL THIS TOOL ONLY WHEN:
+    - User asks about attachments in an email
+    - User wants to list or download attachments
+    - User provides a valid email_id
 
-    Args:
-        email_id: The unique email ID of the sent email
+    REQUIRED PARAMETERS:
+    - email_id: The unique email ID from a previous send_email operation
 
-    Returns:
-        List of attachments with details
+    DO NOT CALL THIS TOOL without a valid email_id. If user doesn't have it, ask them to provide it.
     """
     from src.services.resend import resend_service
 
