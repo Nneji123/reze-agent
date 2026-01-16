@@ -164,22 +164,7 @@ When a task is complete:
 """
 
 
-# Knowledge Base Sources
-RESEND_DOCS_SOURCES = [
-    "https://resend.com/docs/api-reference/introduction",
-    "https://resend.com/docs/send-with-api/send-email",
-    "https://resend.com/docs/send-with-api/attachments",
-    "https://resend.com/docs/send-with-api/preview-email",
-    "https://resend.com/docs/domains/add-domain",
-    "https://resend.com/docs/domains/domain-verification",
-    "https://resend.com/docs/email-delivery/bounces",
-    "https://resend.com/docs/email-delivery/webhooks",
-    "https://resend.com/docs/api-reference/error-codes",
-]
-
-
 __all__ = [
     "REZE_PERSONA",
     "REZE_INSTRUCTIONS",
-    "RESEND_DOCS_SOURCES",
 ]
