@@ -125,7 +125,6 @@ class RAGService:
                     f"Using conversation history with {len(conversation_history)} messages"
                 )
 
-                # Log breakdown of messages
                 user_msgs = [m for m in conversation_history if m.get("role") == "user"]
                 assistant_msgs = [
                     m for m in conversation_history if m.get("role") == "assistant"
@@ -134,7 +133,6 @@ class RAGService:
                     f"History breakdown: {len(user_msgs)} user messages, {len(assistant_msgs)} assistant messages"
                 )
 
-                # Log first and last messages for context
                 if conversation_history:
                     first_msg = conversation_history[0]
                     last_msg = conversation_history[-1]
@@ -157,14 +155,11 @@ class RAGService:
                     content = msg.get("content", "")
                     history_text += f"{role}: {content}\n\n"
 
-                # Add current query to the history
                 prompt = history_text + f"\n\nNow respond to this: {query}"
-
                 logger.info(
                     f"Built prompt with conversation history (total length: {len(prompt)} chars)"
                 )
             else:
-                # No history, use the query directly
                 logger.info("No conversation history, using query directly")
                 prompt = query
 
@@ -190,10 +185,17 @@ class RAGService:
                             yield delta
                         previous_text = chunk
 
+                if hasattr(result, "all_messages"):
+                    for msg in result.all_messages():
+                        if hasattr(msg, "parts"):
+                            for part in msg.parts:
+                                if hasattr(part, "tool_name"):
+                                    logger.info(f"Tool called: {part.tool_name}")
+                                elif hasattr(part, "func_name"):
+                                    logger.info(f"Tool called: {part.func_name}")
+
             logger.info(
-                f"Streaming completed: {total_chunks} chunks, "
-                f"{total_delta} characters of new content, "
-                f"query length: {len(query)}"
+                f"Streaming completed: {total_chunks} chunks, {total_delta} characters of new content, query length: {len(query)}"
             )
 
         except Exception as e:

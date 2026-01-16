@@ -71,13 +71,14 @@ static_dir = Path(__file__).parent.parent / "static"
 app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
 
+from fastapi.responses import FileResponse
+
+
 @app.get("/")
 async def serve_chat_interface():
     """Serve chat interface HTML page."""
     index_file = Path(__file__).parent.parent / "static" / "index.html"
     if index_file.exists():
-        from fastapi.responses import FileResponse
-
         return FileResponse(index_file)
     return {
         "message": "Chat interface not found. Please ensure static/index.html exists."

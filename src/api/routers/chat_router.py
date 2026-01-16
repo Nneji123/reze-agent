@@ -1,6 +1,5 @@
 """Chat router for Reze AI Agent.
 
-This router provides the ONLY interface to interact with Reze.
 All interactions happen through chat, where the agent uses tools
 to perform actions like sending emails, checking status, etc.
 """
@@ -37,10 +36,8 @@ async def chat_message(request: ChatRequest):
     ```
     You: "Send an email to john@example.com"
     Reze: "Sure! What should the subject be?"
-
     You: "Welcome email"
     Reze: "Got it. What should the email say?"
-
     You: "Just a simple welcome message"
     Reze: [Uses send_email tool] "Email sent! ID: abc123"
     ```
@@ -166,7 +163,6 @@ async def list_user_conversations(username: str):
         conversations = await conversation_service.get_user_conversations(
             username=username
         )
-
         conversation_ids = [conv["conversation_id"] for conv in conversations]
 
         return ConversationsListResponse(

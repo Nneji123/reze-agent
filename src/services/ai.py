@@ -8,7 +8,8 @@ from typing import Optional
 
 import openai
 from loguru import logger
-from pydantic_ai import Agent
+from pydantic_ai import Agent, ModelResponse, TextPart
+from pydantic_ai.models.function import AgentInfo
 from pydantic_ai.models.openai import OpenAIChatModel
 
 from src.config import settings
@@ -26,8 +27,6 @@ class AIService:
     def get_agent(self) -> Agent:
         """Get the configured AI agent.
 
-        Creates or reuses the agent based on current settings.
-
         Returns:
             Configured Agent instance
         """
@@ -43,9 +42,6 @@ class AIService:
     def _create_agent(self) -> Agent:
         """Create GLM 4.7 agent with OpenAI-compatible protocol.
 
-        GLM 4.7 from z.ai uses the OpenAI API format, so we can use
-        OpenAIChatModel with custom base_url and api_key.
-
         Returns:
             Configured Agent instance
         """
@@ -55,28 +51,24 @@ class AIService:
                 f"at {settings.glm_base_url}"
             )
 
-            # Create OpenAI-compatible provider with custom settings
             from pydantic_ai.providers.openai import OpenAIProvider
+
+            from src.services.prompt import REZE_INSTRUCTIONS, REZE_PERSONA
 
             provider = OpenAIProvider(
                 api_key=settings.glm_api_key,
                 base_url=settings.glm_base_url,
             )
 
-            # Create model with the custom provider
             model = OpenAIChatModel(
                 model_name=settings.glm_model,
                 provider=provider,
             )
 
-            # Log model configuration
             logger.info(
                 f"OpenAIChatModel created for {settings.glm_model} "
                 f"with support for tool calling and streaming"
             )
-
-            # Create agent with model, tools, and system prompt
-            from src.services.prompt import REZE_INSTRUCTIONS, REZE_PERSONA
 
             logger.info(f"Registering {len(ALL_TOOLS)} tools with agent")
             for tool in ALL_TOOLS:
@@ -93,14 +85,14 @@ class AIService:
                 f"GLM 4.7 agent created successfully with {len(ALL_TOOLS)} tools registered"
             )
 
-            # Inspect agent configuration
+            self._inspect_tool_schemas(agent)
+
             logger.info("=== Agent Configuration Inspection ===")
             logger.info(f"Agent name: {agent.name}")
             logger.info(f"Model: {settings.glm_model}")
             logger.info(f"Base URL: {settings.glm_base_url}")
             logger.info(f"Registered tools count: {len(ALL_TOOLS)}")
 
-            # Verify tools are accessible
             if hasattr(agent, "tools") and agent.tools:
                 logger.info(
                     f"Tools attribute exists and contains {len(agent.tools)} items"
@@ -131,7 +123,6 @@ class AIService:
             agent = self.get_agent()
             result = await agent.run(message)
 
-            # Log if tools were called
             if hasattr(result, "tool_calls") and result.tool_calls:
                 logger.info(
                     f"Agent called {len(result.tool_calls)} tools: {[tc.name for tc in result.tool_calls]}"
@@ -149,9 +140,6 @@ class AIService:
     async def stream_agent(self, message: str):
         """Run agent with streaming response.
 
-        This yields chunks of the response as they're generated,
-        providing real-time feedback to the user.
-
         Args:
             message: User message to process
 
@@ -167,7 +155,6 @@ class AIService:
                     logger.debug(f"Streamed chunk length: {len(chunk)}")
                     yield chunk
 
-            # Check if tools were called after streaming
             if hasattr(result, "all_messages"):
                 for msg in result.all_messages():
                     if hasattr(msg, "tool_calls") and msg.tool_calls:
@@ -186,6 +173,49 @@ class AIService:
         except Exception as e:
             logger.error(f"Agent streaming failed: {e}")
             raise
+
+    def _inspect_tool_schemas(self, agent: Agent):
+        """Inspect and log tool schemas using PydanticAI AgentInfo pattern.
+
+        Args:
+            agent: The configured PydanticAI Agent instance
+        """
+        try:
+            logger.info("=== Tool Schema Inspection ===")
+
+            from pydantic_ai import Agent
+
+            if hasattr(agent, "function_tools"):
+                tools = agent.function_tools
+                logger.info(f"Found {len(tools)} function tools")
+
+                for i, tool in enumerate(tools):
+                    logger.info(f"\nTool {i + 1}:")
+                    logger.info(f"  Name: {tool.name}")
+                    logger.info(f"  Description: {tool.description}")
+
+                    if hasattr(tool, "parameters_json_schema"):
+                        logger.info(f"  Parameters:")
+                        schema = tool.parameters_json_schema
+                        if schema and "properties" in schema:
+                            for param_name, param_info in schema["properties"].items():
+                                param_type = param_info.get("type", "unknown")
+                                param_desc = param_info.get("description", "")
+                                required = (
+                                    "required"
+                                    if param_name in schema.get("required", [])
+                                    else "optional"
+                                )
+                                logger.info(
+                                    f"    - {param_name} ({param_type}, {required}): {param_desc}"
+                                )
+                            else:
+                                logger.info("    No parameters")
+
+            logger.info("=== End Tool Schema Inspection ===")
+
+        except Exception as e:
+            logger.error(f"Failed to inspect tool schemas: {e}", exc_info=True)
 
 
 # Global AI service singleton instance
