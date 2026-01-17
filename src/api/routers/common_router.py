@@ -35,7 +35,8 @@ async def serve_chat_interface() -> FileResponse | dict[str, str]:
     return {
         "message": "Chat interface not found. Please ensure static/index.html exists."
     }
-    
+
+
 @router.get("/favicon.ico")
 async def serve_favicon() -> FileResponse | dict[str, str]:
     """Serve favicon.ico file.
@@ -46,6 +47,4 @@ async def serve_favicon() -> FileResponse | dict[str, str]:
     favicon_file = Path(__file__).parent.parent.parent.parent / "static" / "favicon.ico"
     if favicon_file.exists():
         return FileResponse(favicon_file)
-    return {
-        "message": "Favicon not found. Please ensure static/favicon.ico exists."
-    }
+    return {"message": "Favicon not found. Please ensure static/favicon.ico exists."}
