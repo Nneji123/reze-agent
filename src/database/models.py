@@ -4,8 +4,6 @@ This module defines SQLAlchemy models for storing chat conversations
 and related data. All models use async SQLAlchemy.
 """
 
-from datetime import datetime
-
 from sqlalchemy import Column, DateTime, Integer, String, Text
 from sqlalchemy.sql import func
 

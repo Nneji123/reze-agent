@@ -5,22 +5,24 @@ for Resend.com powered by GLM 4.7 from z.ai.
 """
 
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from loguru import logger
 
 from src.api.routers.chat_router import router as chat_router
 from src.config import settings
 from src.database.session import init_db
-from src.services.memvid import memvid
+from src.services.memvid import memvid_service
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan manager.
 
-    Handles startup and shutdown events for the FastAPI application.
+    Handles startup and shutdown events for FastAPI application.
     """
     logger.info("Starting Reze AI Agent application...")
 
@@ -33,7 +35,7 @@ async def lifespan(app: FastAPI):
 
     try:
         logger.info("Initializing Memvid service...")
-        stats = memvid.get_stats()
+        stats = memvid_service.get_stats()
         logger.info(f"Memvid service initialized: {stats}")
     except Exception as e:
         logger.error(f"Failed to initialize Memvid service: {e}")
@@ -54,8 +56,12 @@ app = FastAPI(
 
 
 @app.get("/health")
-async def health_check():
-    """Health check endpoint."""
+async def health_check() -> dict[str, str | str]:
+    """Health check endpoint.
+
+    Returns:
+        Dictionary with service status information
+    """
     return {
         "status": "healthy",
         "service": "reze-ai-agent",
@@ -65,18 +71,17 @@ async def health_check():
 
 app.include_router(chat_router)
 
-from pathlib import Path
-
 static_dir = Path(__file__).parent.parent / "static"
 app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
 
-from fastapi.responses import FileResponse
+@app.get("/", response_model=None)
+async def serve_chat_interface() -> FileResponse | dict[str, str]:
+    """Serve chat interface HTML page.
 
-
-@app.get("/")
-async def serve_chat_interface():
-    """Serve chat interface HTML page."""
+    Returns:
+        FileResponse if index.html exists, otherwise error message
+    """
     index_file = Path(__file__).parent.parent / "static" / "index.html"
     if index_file.exists():
         return FileResponse(index_file)

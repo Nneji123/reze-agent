@@ -6,9 +6,10 @@ and stores them in Memvid for RAG (Retrieval-Augmented Generation).
 
 import asyncio
 import os
+import shutil
 import sys
 from pathlib import Path
-from typing import Dict, List
+from typing import Any
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -24,8 +25,8 @@ class MemvidPopulator:
     """Populates Memvid with documentation."""
 
     def __init__(self):
-        self.memvid_path = settings.memvid_file_path
-        self.backup_path = self.memvid_path + ".backup"
+        self.memvid_path: str = settings.memvid_file_path
+        self.backup_path: str = self.memvid_path + ".backup"
         self.mem = None
         self.client = httpx.AsyncClient(
             timeout=30.0,
@@ -33,14 +34,13 @@ class MemvidPopulator:
             limits=httpx.Limits(max_connections=10, max_keepalive_connections=5),
         )
 
-    async def initialize_memvid(self):
+    async def initialize_memvid(self) -> None:
         """Initialize or load Memvid store."""
         logger.info(f"Initializing Memvid at {self.memvid_path}")
 
         if os.path.exists(self.memvid_path):
             logger.info("Loading existing Memvid store")
 
-            # Create backup before attempting to load
             self._create_backup()
 
             try:
@@ -56,7 +56,6 @@ class MemvidPopulator:
                 error_msg = str(load_error)
                 logger.error(f"Failed to load Memvid store: {error_msg}")
 
-                # Check if it's a corruption error (Tantivy, sketch track, etc.)
                 is_corruption = any(
                     keyword in error_msg.lower()
                     for keyword in [
@@ -77,7 +76,6 @@ class MemvidPopulator:
                     else:
                         logger.warning("Recovery failed, creating fresh store...")
 
-                # If recovery failed or not corruption, raise original error
                 raise
         else:
             logger.info("Creating new Memvid store")
@@ -89,7 +87,14 @@ class MemvidPopulator:
             )
 
     async def fetch_page(self, url: str) -> str:
-        """Fetch a single page from URL."""
+        """Fetch a single page from URL.
+
+        Args:
+            url: URL to fetch
+
+        Returns:
+            HTML content or empty string on failure
+        """
         try:
             response = await self.client.get(url)
             response.raise_for_status()
@@ -98,19 +103,24 @@ class MemvidPopulator:
             logger.warning(f"Failed to fetch {url}: {e}")
             return ""
 
-    def parse_html(self, html: str, url: str) -> Dict[str, str]:
-        """Parse HTML and extract content."""
+    def parse_html(self, html: str, url: str) -> dict[str, str]:
+        """Parse HTML and extract content.
+
+        Args:
+            html: HTML content
+            url: Source URL
+
+        Returns:
+            Dictionary with title, content, and url
+        """
         soup = BeautifulSoup(html, "html.parser")
 
-        # Remove script and style elements
         for element in soup(["script", "style"]):
             element.decompose()
 
-        # Extract title
         title_tag = soup.find("h1") or soup.find("title")
         title = title_tag.get_text(strip=True) if title_tag else "Untitled"
 
-        # Extract main content
         main_content = (
             soup.find("main")
             or soup.find("article")
@@ -121,7 +131,6 @@ class MemvidPopulator:
         if not main_content:
             return {"title": title, "content": "", "url": url}
 
-        # Clean up text
         text = main_content.get_text(separator="\n", strip=True)
         lines = [
             line.strip() for line in text.split("\n") if line.strip() and len(line) > 10
@@ -131,9 +140,17 @@ class MemvidPopulator:
         return {"title": title, "content": content, "url": url}
 
     def add_to_memvid(self, title: str, content: str, url: str) -> bool:
-        """Add document to Memvid."""
+        """Add document to Memvid.
+
+        Args:
+            title: Document title
+            content: Document content
+            url: Source URL
+
+        Returns:
+            True if successful, False otherwise
+        """
         try:
-            # Create backup before adding document
             self._create_backup()
 
             self.mem.put(
@@ -150,7 +167,6 @@ class MemvidPopulator:
             error_msg = str(e)
             logger.error(f"Failed to add {title}: {e}")
 
-            # Check if it's a Tantivy/corruption error
             is_corruption = any(
                 keyword in error_msg.lower()
                 for keyword in ["tantivy", "index writer", "sketch track", "invalid"]
@@ -161,7 +177,6 @@ class MemvidPopulator:
                     "Detected corruption during add_to_memvid, attempting recovery..."
                 )
                 if self._attempt_recovery():
-                    # Retry adding the document
                     try:
                         self.mem.put(
                             title=title,
@@ -180,7 +195,14 @@ class MemvidPopulator:
             return False
 
     async def fetch_and_store(self, url: str) -> bool:
-        """Fetch URL and store in Memvid."""
+        """Fetch URL and store in Memvid.
+
+        Args:
+            url: URL to fetch and store
+
+        Returns:
+            True if successful, False otherwise
+        """
         html = await self.fetch_page(url)
         if not html:
             return False
@@ -202,8 +224,12 @@ class MemvidPopulator:
 
         return success
 
-    async def load_sitemap_from_file(self) -> List[str]:
-        """Load all documentation URLs from local sitemap.xml file."""
+    async def load_sitemap_from_file(self) -> list[str]:
+        """Load all documentation URLs from local sitemap.xml file.
+
+        Returns:
+            List of URLs from sitemap
+        """
         try:
             sitemap_path = Path(__file__).parent / "sitemap.xml"
             logger.info(f"Loading sitemap from {sitemap_path}")
@@ -211,19 +237,17 @@ class MemvidPopulator:
             with open(sitemap_path, "r", encoding="utf-8") as f:
                 sitemap_text = f.read()
 
-            # Split by whitespace and filter for URLs
             tokens = sitemap_text.split()
             urls = [token for token in tokens if token.startswith("https://")]
 
             logger.info(f"Found {len(urls)} URLs in sitemap")
             return urls
-
         except Exception as e:
             logger.error(f"Failed to load sitemap: {e}")
             return []
 
     async def populate_from_sitemap(
-        self, max_urls: int = None, concurrency: int = 10
+        self, max_urls: int | None = None, concurrency: int = 10
     ) -> int:
         """Populate Memvid using URLs from sitemap with concurrent processing.
 
@@ -234,7 +258,7 @@ class MemvidPopulator:
         Returns:
             Number of successfully added documents
         """
-        logger.info("📋 Loading documentation URLs from sitemap...")
+        logger.info("Loading documentation URLs from sitemap...")
         urls = await self.load_sitemap_from_file()
 
         if max_urls:
@@ -244,7 +268,6 @@ class MemvidPopulator:
         total = len(urls)
         success_count = 0
 
-        # Process URLs in batches with concurrency control
         logger.info(f"Processing {total} URLs with concurrency={concurrency}")
 
         for i in range(0, total, concurrency):
@@ -256,28 +279,29 @@ class MemvidPopulator:
                 f"Batch {batch_num}/{total_batches}: Processing {len(batch)} URLs"
             )
 
-            # Fetch and store concurrently
             results = await asyncio.gather(
                 *[self.fetch_and_store(url) for url in batch],
                 return_exceptions=True,
             )
 
-            # Count successes
             for result in results:
                 if isinstance(result, bool) and result:
                     success_count += 1
                 elif isinstance(result, Exception):
                     logger.error(f"Exception in batch: {result}")
 
-            # Small delay between batches
             if i + concurrency < total:
                 await asyncio.sleep(0.5)
 
         logger.success(f"Population complete! Added {success_count}/{total} documents")
         return success_count
 
-    async def get_stats(self) -> Dict:
-        """Get Memvid statistics."""
+    async def get_stats(self) -> dict[str, Any]:
+        """Get Memvid statistics.
+
+        Returns:
+            Dictionary with statistics
+        """
         try:
             file_size = (
                 os.path.getsize(self.memvid_path)
@@ -295,15 +319,13 @@ class MemvidPopulator:
             logger.error(f"Failed to get stats: {e}")
             return {}
 
-    async def close(self):
+    async def close(self) -> None:
         """Close resources."""
         await self.client.aclose()
 
     def _create_backup(self) -> None:
         """Create a backup of Memvid file."""
         try:
-            import shutil
-
             if os.path.exists(self.memvid_path):
                 shutil.copy2(self.memvid_path, self.backup_path)
                 logger.debug(f"Created backup at: {self.backup_path}")
@@ -317,9 +339,6 @@ class MemvidPopulator:
             True if recovery successful, False otherwise
         """
         try:
-            import shutil
-
-            # Try to restore from backup
             if os.path.exists(self.backup_path):
                 logger.info("Attempting to restore from backup...")
                 shutil.copy2(self.backup_path, self.memvid_path)
@@ -338,7 +357,6 @@ class MemvidPopulator:
                     logger.error(f"Backup also corrupted: {e}")
                     return False
 
-            # No backup available or backup failed, create fresh
             logger.warning("No valid backup found, creating fresh Memvid store...")
             if os.path.exists(self.memvid_path):
                 os.remove(self.memvid_path)
@@ -352,13 +370,12 @@ class MemvidPopulator:
             )
             logger.success("Created fresh Memvid store")
             return True
-
         except Exception as e:
             logger.error(f"Recovery failed: {e}")
             return False
 
 
-async def main():
+async def main() -> None:
     """Main entry point."""
     logger.info("=" * 80)
     logger.info("Reze AI Agent - Memvid Population Script")
@@ -370,29 +387,28 @@ async def main():
         await populator.initialize_memvid()
         await populator.get_stats()
 
-        logger.info("\n📚 Populating Memvid with Resend.com documentation...")
+        logger.info("Populating Memvid with Resend.com documentation...")
         await populator.populate_from_sitemap(
-            max_urls=None,  # Set to a number to limit (e.g., 50)
-            concurrency=10,  # Adjust based on your needs
+            max_urls=None,
+            concurrency=10,
         )
 
-        logger.info("\n📊 Final statistics:")
+        logger.info("Final statistics:")
         await populator.get_stats()
 
-        logger.info("\n🔍 Enriching entities...")
+        logger.info("Enriching entities...")
         try:
             populator.mem.enrich(engine="rules")
             logger.success("Entity enrichment complete")
         except Exception as e:
             logger.warning(f"Entity enrichment failed (non-critical): {e}")
 
-        logger.success("\n✅ Memvid population complete!")
-        logger.info(f"📁 Knowledge base saved to: {populator.memvid_path}")
-
+        logger.success("Memvid population complete!")
+        logger.info(f"Knowledge base saved to: {populator.memvid_path}")
     except KeyboardInterrupt:
-        logger.warning("\n⚠️ Interrupted by user")
+        logger.warning("Interrupted by user")
     except Exception as e:
-        logger.error(f"\n❌ Error during population: {e}", exc_info=True)
+        logger.error(f"Error during population: {e}", exc_info=True)
     finally:
         await populator.close()
 

@@ -23,6 +23,6 @@ COPY . /app
 EXPOSE 8000
 
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
-    CMD python -c "import requests; requests.get('http://localhost:8004/api/health')" || exit 1
+    CMD python -c "import requests; requests.get('http://localhost:8000/health')" || exit 1
 
 CMD uv run main.py

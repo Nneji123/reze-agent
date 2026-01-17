@@ -6,7 +6,7 @@ and O(1) entity lookups.
 """
 
 import os
-from typing import Dict, List, Optional
+import shutil
 
 from loguru import logger
 from memvid_sdk import create, use
@@ -32,7 +32,6 @@ class MemvidService:
             if os.path.exists(self.memvid_path):
                 logger.info("Found existing Memvid store - loading...")
 
-                # Create backup before attempting to load
                 self._create_backup()
 
                 try:
@@ -48,7 +47,6 @@ class MemvidService:
                     error_msg = str(load_error)
                     logger.error(f"Failed to load Memvid store: {error_msg}")
 
-                    # Check if it's a corruption error (Tantivy, sketch track, etc.)
                     is_corruption = any(
                         keyword in error_msg.lower()
                         for keyword in [
@@ -69,7 +67,6 @@ class MemvidService:
                         else:
                             logger.warning("Recovery failed, creating fresh store...")
 
-                    # If recovery failed or not corruption, raise original error
                     raise
             else:
                 logger.info("No existing store found - creating new Memvid store...")
@@ -86,10 +83,8 @@ class MemvidService:
             raise
 
     def _create_backup(self) -> None:
-        """Create a backup of the Memvid file."""
+        """Create a backup of Memvid file."""
         try:
-            import shutil
-
             if os.path.exists(self.memvid_path):
                 shutil.copy2(self.memvid_path, self.backup_path)
                 logger.debug(f"Created backup at: {self.backup_path}")
@@ -103,9 +98,6 @@ class MemvidService:
             True if recovery successful, False otherwise
         """
         try:
-            import shutil
-
-            # Try to restore from backup
             if os.path.exists(self.backup_path):
                 logger.info("Attempting to restore from backup...")
                 shutil.copy2(self.backup_path, self.memvid_path)
@@ -124,7 +116,6 @@ class MemvidService:
                     logger.error(f"Backup also corrupted: {e}")
                     return False
 
-            # No backup available or backup failed, create fresh
             logger.warning("No valid backup found, creating fresh Memvid store...")
             if os.path.exists(self.memvid_path):
                 os.remove(self.memvid_path)
@@ -147,7 +138,7 @@ class MemvidService:
         self,
         text: str,
         title: str,
-        metadata: Optional[Dict] = None,
+        metadata: dict | None = None,
     ) -> bool:
         """Add a document to Memvid knowledge base.
 
@@ -160,7 +151,6 @@ class MemvidService:
             True if successful, False otherwise
         """
         try:
-            # Create backup before adding document
             self._create_backup()
 
             await self.mem.put(
@@ -174,7 +164,6 @@ class MemvidService:
             error_msg = str(e)
             logger.error(f"Failed to add document '{title}': {e}")
 
-            # Check if it's a Tantivy/corruption error
             is_corruption = any(
                 keyword in error_msg.lower()
                 for keyword in ["tantivy", "index writer", "sketch track", "invalid"]
@@ -185,7 +174,6 @@ class MemvidService:
                     "Detected corruption during add_document, attempting recovery..."
                 )
                 if self._attempt_recovery():
-                    # Retry adding the document
                     try:
                         await self.mem.put(
                             title=title,
@@ -204,7 +192,7 @@ class MemvidService:
         query: str,
         k: int = 5,
         mode: str = "hybrid",
-    ) -> List[Dict]:
+    ) -> list[dict]:
         """Search documents in Memvid.
 
         Args:
@@ -247,11 +235,11 @@ class MemvidService:
             logger.error(f"Entity enrichment failed: {e}")
             return False
 
-    def get_entity_state(self, entity_name: str) -> Optional[Dict]:
+    def get_entity_state(self, entity_name: str) -> dict | None:
         """Get entity state (O(1) lookup).
 
         Args:
-            entity_name: Name of the entity to query
+            entity_name: Name of entity to query
 
         Returns:
             Entity state dictionary or None if not found
@@ -263,7 +251,7 @@ class MemvidService:
             logger.error(f"Failed to get entity state '{entity_name}': {e}")
             return None
 
-    def get_stats(self) -> Dict:
+    def get_stats(self) -> dict:
         """Get Memvid store statistics.
 
         Returns:
@@ -272,14 +260,16 @@ class MemvidService:
         try:
             stats = {
                 "file_path": self.memvid_path,
-                "file_size_bytes": os.path.getsize(self.memvid_path)
-                if os.path.exists(self.memvid_path)
-                else 0,
-                "file_size_mb": round(
-                    os.path.getsize(self.memvid_path) / (1024 * 1024), 2
-                )
-                if os.path.exists(self.memvid_path)
-                else 0,
+                "file_size_bytes": (
+                    os.path.getsize(self.memvid_path)
+                    if os.path.exists(self.memvid_path)
+                    else 0
+                ),
+                "file_size_mb": (
+                    round(os.path.getsize(self.memvid_path) / (1024 * 1024), 2)
+                    if os.path.exists(self.memvid_path)
+                    else 0
+                ),
                 "index_kind": settings.memvid_index_kind,
                 "initialized": self.mem is not None,
             }
@@ -301,7 +291,6 @@ class MemvidService:
             Number of documents
         """
         try:
-            # Perform a search with empty query to get all docs
             results = self.mem.find(query="", k=1000)
             return len(results)
         except Exception as e:
@@ -317,12 +306,10 @@ class MemvidService:
             True if successful, False otherwise
         """
         try:
-            # Delete the file and reinitialize
             if os.path.exists(self.memvid_path):
                 os.remove(self.memvid_path)
                 logger.warning(f"Deleted Memvid store: {self.memvid_path}")
 
-            # Reinitialize
             self._initialize()
             logger.success("Memvid cleared and reinitialized")
             return True
@@ -331,5 +318,4 @@ class MemvidService:
             return False
 
 
-# Global singleton instance
-memvid = MemvidService()
+memvid_service = MemvidService()

@@ -4,7 +4,7 @@ This module defines response models for health checks, stats,
 and conversation management endpoints.
 """
 
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -18,11 +18,10 @@ class HealthResponse(BaseModel):
 class RAGStatsResponse(BaseModel):
     """RAG service statistics response."""
 
-    document_count: Optional[int] = None
-    vector_store_status: Optional[str] = None
+    document_count: int | None = None
+    vector_store_status: str | None = None
 
-    class Config:
-        extra = "allow"
+    model_config = {"extra": "allow"}
 
 
 class ConversationHistoryResponse(BaseModel):
@@ -51,15 +50,15 @@ class StatsQueryParams(BaseModel):
 
     limit: int = Field(default=100, ge=1, le=1000)
     offset: int = Field(default=0, ge=0)
-    start_date: Optional[str] = None
-    end_date: Optional[str] = None
+    start_date: str | None = None
+    end_date: str | None = None
 
 
 class StatsSummaryQueryParams(BaseModel):
     """Query parameters for stats summary endpoint."""
 
-    start_date: Optional[str] = None
-    end_date: Optional[str] = None
+    start_date: str | None = None
+    end_date: str | None = None
     group_by: str = Field(default="hour", pattern="^(hour|day)$")
 
 

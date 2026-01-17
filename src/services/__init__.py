@@ -6,7 +6,7 @@ throughout the application for AI, RAG, Resend API, and conversation management.
 
 from .ai import ai_service
 from .conversation import conversation_service
-from .memvid import memvid
+from .memvid import memvid_service
 from .rag import rag_service
 from .resend import resend_service
 
@@ -14,6 +14,6 @@ __all__ = [
     "ai_service",
     "rag_service",
     "resend_service",
-    "memvid",
+    "memvid_service",
     "conversation_service",
 ]

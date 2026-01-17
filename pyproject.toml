@@ -7,25 +7,14 @@ dependencies = [
     "fastapi>=0.104.0",
     "uvicorn[standard]>=0.24.0",
     "sqlalchemy[asyncio]>=2.0.0",
-    "asyncpg>=0.29.0",
     "aiosqlite>=0.19.0",
     "pydantic>=2.5.0",
     "pydantic-settings>=2.0.0",
-    "pydantic-extra-types>=2.0.0",
-    "python-dotenv>=1.0.0",
     "httpx>=0.25.0",
-    "aiofiles>=23.2.1",
     "beautifulsoup4>=4.12.0",
-    "structlog>=23.2.0",
     "pydantic-ai>=0.1.0",
-    "openai>=1.0.0",
-    "requests>=2.31.0",
-    "asgiref>=3.9.1",
     "loguru>=0.7.3",
-    "sentry-sdk[fastapi]>=2.0.0",
-    "pytz>=2024.1",
     "memvid-sdk>=1.0.0",
-    "resend>=1.0.0",
 ]
 
 [project.optional-dependencies]
@@ -35,18 +24,6 @@ dev = [
     "pytest-cov>=4.1.0",
     "ruff>=0.0.263",
 ]
-
-[tool.ruff]
-line-length = 88
-target-version = "py312"
-
-[tool.ruff.format]
-quote-style = "double"
-skip-magic-trailing-comma = false
-line-ending = "auto"
-
-[tool.ruff.lint]
-select = ["I"]
 
 [tool.pyright]
 include = ["src"]

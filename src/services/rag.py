@@ -1,17 +1,16 @@
 """RAG (Retrieval-Augmented Generation) service using Memvid."""
 
-from typing import AsyncGenerator, Dict, List
-
-from pydantic_ai import Agent
+from typing import AsyncGenerator
 
 from src.services.ai import ai_service
-from src.services.memvid import memvid as memvid_service
+from src.services.memvid import memvid_service
 
 
 class RAGService:
     """Service for Retrieval-Augmented Generation."""
 
     def __init__(self):
+        """Initialize RAG service."""
         self.agent = ai_service.get_agent()
 
     async def query(
@@ -19,8 +18,17 @@ class RAGService:
         query: str,
         use_rag: bool = True,
         k: int = 5,
-    ) -> Dict:
-        """Query with optional RAG (non-streaming)."""
+    ) -> dict:
+        """Query with optional RAG (non-streaming).
+
+        Args:
+            query: User's question or request
+            use_rag: Whether to use RAG for context (default: True)
+            k: Number of documents to retrieve (default: 5)
+
+        Returns:
+            Dictionary with message, context, and tools_called
+        """
         context_docs = []
 
         if use_rag:
@@ -31,20 +39,30 @@ class RAGService:
         return {
             "message": result.data,
             "context": context_docs,
-            "tools_called": result.tool_calls
-            if hasattr(result, "tool_calls")
-            else None,
+            "tools_called": (
+                result.tool_calls if hasattr(result, "tool_calls") else None
+            ),
             "use_rag": use_rag,
         }
 
     async def query_stream(
         self,
         query: str,
-        conversation_history: list = None,
+        conversation_history: list | None = None,
         use_rag: bool = True,
         k: int = 5,
     ) -> AsyncGenerator[str, None]:
-        """Query with RAG and stream response."""
+        """Query with RAG and stream response.
+
+        Args:
+            query: User's question or request
+            conversation_history: List of previous messages for context
+            use_rag: Whether to use RAG for context (default: True)
+            k: Number of documents to retrieve (default: 5)
+
+        Yields:
+            Response chunks as they're generated
+        """
         if use_rag:
             self._retrieve_documents(query, k=k)
 
@@ -71,10 +89,18 @@ class RAGService:
         query: str,
         k: int = 5,
         mode: str = "hybrid",
-    ) -> List[Dict]:
-        """Retrieve relevant documents from Memvid."""
+    ) -> list[dict]:
+        """Retrieve relevant documents from Memvid.
+
+        Args:
+            query: Search query
+            k: Number of results to return
+            mode: Search mode ("lex", "sem", or "hybrid")
+
+        Returns:
+            List of document dictionaries
+        """
         return memvid_service.search(query=query, k=k, mode=mode)
 
 
-# Global singleton instance
 rag_service = RAGService()

@@ -6,10 +6,11 @@ Each conversation is identified by a unique conversation_id (UUID).
 
 import uuid
 from datetime import datetime
-from typing import List, Optional
+from typing import Any
 
 from loguru import logger
 from pydantic import BaseModel
+from sqlalchemy import delete, func, select
 
 from src.database.models import ConversationLog
 from src.database.session import async_session_maker
@@ -18,9 +19,9 @@ from src.database.session import async_session_maker
 class ChatMessage(BaseModel):
     """Represents a single message in a conversation."""
 
-    role: str  # "user" or "assistant"
+    role: str
     content: str
-    timestamp: Optional[datetime] = None
+    timestamp: datetime | None = None
 
 
 class ConversationService:
@@ -34,7 +35,7 @@ class ConversationService:
         """Create a new conversation with unique ID.
 
         Args:
-            username: Username identifier for the conversation
+            username: Username identifier for conversation
 
         Returns:
             Unique conversation ID (UUID)
@@ -56,7 +57,7 @@ class ConversationService:
             conversation_id: Unique conversation identifier
             role: Message role ("user" or "assistant")
             content: Message content
-            username: Username identifier for the message
+            username: Username identifier for message
         """
         try:
             async with async_session_maker() as db_session:
@@ -82,8 +83,8 @@ class ConversationService:
     async def get_conversation_history(
         self,
         conversation_id: str,
-        limit: Optional[int] = None,
-    ) -> List[ChatMessage]:
+        limit: int | None = None,
+    ) -> list[ChatMessage]:
         """Retrieve conversation history for a specific conversation.
 
         Args:
@@ -94,8 +95,6 @@ class ConversationService:
             List of chat messages in chronological order
         """
         try:
-            from sqlalchemy import select
-
             async with async_session_maker() as db_session:
                 stmt = (
                     select(ConversationLog)
@@ -110,7 +109,6 @@ class ConversationService:
                     f"Database query returned {len(db_messages)} total messages for {conversation_id}"
                 )
 
-                # Convert to ChatMessage objects
                 messages = [
                     ChatMessage(
                         role=msg.role,
@@ -120,11 +118,9 @@ class ConversationService:
                     for msg in db_messages
                 ]
 
-                # Apply limit if specified (take most recent messages)
                 if limit and len(messages) > limit:
                     messages = messages[-limit:]
 
-                # Log message breakdown for debugging
                 user_msgs = [m for m in messages if m.role == "user"]
                 assistant_msgs = [m for m in messages if m.role == "assistant"]
                 logger.info(
@@ -149,7 +145,7 @@ class ConversationService:
     async def get_user_conversations(
         self,
         username: str,
-    ) -> List[dict]:
+    ) -> list[dict[str, Any]]:
         """Get all conversations for a specific user.
 
         Args:
@@ -159,10 +155,7 @@ class ConversationService:
             List of conversation metadata with ID, message count, etc.
         """
         try:
-            from sqlalchemy import func, select
-
             async with async_session_maker() as db_session:
-                # Get distinct conversation IDs for this user
                 stmt = (
                     select(
                         ConversationLog.conversation_id,
@@ -196,17 +189,14 @@ class ConversationService:
             logger.error(f"Failed to get user conversations: {e}")
             return []
 
-    async def list_conversations(self) -> List[str]:
+    async def list_conversations(self) -> list[str]:
         """List all active conversation IDs.
 
         Returns:
             List of conversation IDs
         """
         try:
-            from sqlalchemy import func, select
-
             async with async_session_maker() as db_session:
-                # Get distinct conversation IDs
                 stmt = select(ConversationLog.conversation_id).distinct()
                 result = await db_session.execute(stmt)
                 conversations = result.scalars().all()
@@ -227,8 +217,6 @@ class ConversationService:
             conversation_id: Unique conversation identifier to delete
         """
         try:
-            from sqlalchemy import delete
-
             async with async_session_maker() as db_session:
                 stmt = delete(ConversationLog).where(
                     ConversationLog.conversation_id == conversation_id
@@ -245,7 +233,7 @@ class ConversationService:
     async def get_conversation_stats(
         self,
         conversation_id: str,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Get statistics about a specific conversation.
 
         Args:
@@ -255,10 +243,7 @@ class ConversationService:
             Dictionary with message count, first/last timestamps, etc.
         """
         try:
-            from sqlalchemy import func, select
-
             async with async_session_maker() as db_session:
-                # Count messages
                 stmt = select(ConversationLog).where(
                     ConversationLog.conversation_id == conversation_id
                 )
@@ -272,7 +257,6 @@ class ConversationService:
                         "exists": False,
                     }
 
-                # Get stats
                 stats = {
                     "conversation_id": conversation_id,
                     "message_count": len(messages),
@@ -281,7 +265,6 @@ class ConversationService:
                     "exists": True,
                 }
 
-                # Count by role
                 user_count = sum(1 for m in messages if m.role == "user")
                 assistant_count = sum(1 for m in messages if m.role == "assistant")
 
@@ -300,5 +283,4 @@ class ConversationService:
             }
 
 
-# Global singleton instance
 conversation_service = ConversationService()

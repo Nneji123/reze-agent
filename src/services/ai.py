@@ -1,7 +1,5 @@
 """AI service with GLM 4.7 integration from z.ai."""
 
-from typing import Optional
-
 from pydantic_ai import Agent
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
@@ -15,10 +13,16 @@ class AIService:
     """Service for managing AI agent with GLM 4.7."""
 
     def __init__(self):
-        self._agent: Optional[Agent] = None
-        self._current_model: Optional[str] = None
+        """Initialize AI service."""
+        self._agent: Agent | None = None
+        self._current_model: str | None = None
 
     def get_agent(self) -> Agent:
+        """Get the configured AI agent.
+
+        Returns:
+            Configured Agent instance
+        """
         model_key = f"{settings.glm_model}@{settings.glm_base_url}"
 
         if self._agent is None or self._current_model != model_key:
@@ -28,6 +32,11 @@ class AIService:
         return self._agent
 
     def _create_agent(self) -> Agent:
+        """Create GLM 4.7 agent with OpenAI-compatible protocol.
+
+        Returns:
+            Configured Agent instance
+        """
         provider = OpenAIProvider(
             api_key=settings.glm_api_key,
             base_url=settings.glm_base_url,
@@ -46,10 +55,26 @@ class AIService:
         )
 
     async def run_agent(self, message: str):
+        """Run agent with a message (non-streaming).
+
+        Args:
+            message: User message to process
+
+        Returns:
+            Agent response data
+        """
         agent = self.get_agent()
         return await agent.run(message)
 
     async def stream_agent(self, message: str):
+        """Run agent with streaming response.
+
+        Args:
+            message: User message to process
+
+        Yields:
+            Response chunks as they're generated
+        """
         agent = self.get_agent()
 
         async with agent.run_stream(message) as result:
@@ -63,5 +88,4 @@ class AIService:
                     previous_text = chunk
 
 
-# Global singleton instance
 ai_service = AIService()

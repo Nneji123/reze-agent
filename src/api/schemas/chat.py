@@ -1,11 +1,10 @@
 """Chat API schemas for Reze AI Agent.
 
-This module defines Pydantic schemas for the chat interface,
+This module defines Pydantic schemas for chat interface,
 which is the only way to interact with Reze (chat-only agent).
 """
 
 from datetime import datetime
-from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -30,7 +29,7 @@ class ChatRequest(BaseModel):
         min_length=1,
         max_length=10000,
     )
-    conversation_id: Optional[str] = Field(
+    conversation_id: str | None = Field(
         None,
         description="Conversation ID for context tracking. Auto-generated if not provided.",
         min_length=1,
@@ -56,7 +55,7 @@ class ChatMessage(BaseModel):
         min_length=1,
         max_length=50000,
     )
-    timestamp: Optional[datetime] = Field(
+    timestamp: datetime | None = Field(
         None,
         description="ISO format timestamp when message was created",
     )
@@ -74,10 +73,10 @@ class ConversationHistoryResponse(BaseModel):
         min_length=1,
         max_length=36,
     )
-    messages: List[ChatMessage] = Field(
+    messages: list[ChatMessage] = Field(
         ...,
         description="List of messages in chronological order",
-        min_items=0,
+        min_length=0,
     )
     message_count: int = Field(
         ...,
@@ -92,10 +91,10 @@ class ConversationsListResponse(BaseModel):
     Returns a list of all conversation IDs for debugging/admin purposes.
     """
 
-    conversations: List[str] = Field(
+    conversations: list[str] = Field(
         ...,
         description="List of conversation IDs",
-        min_items=0,
+        min_length=0,
     )
     total: int = Field(
         ...,
@@ -152,7 +151,7 @@ class UserConversation(BaseModel):
         description="Total number of messages in conversation",
         ge=0,
     )
-    last_updated: Optional[datetime] = Field(
+    last_updated: datetime | None = Field(
         None,
         description="Timestamp of last message in conversation",
     )
@@ -165,10 +164,10 @@ class UserConversationsResponse(BaseModel):
     with metadata like message count and timestamps.
     """
 
-    conversations: List[UserConversation] = Field(
+    conversations: list[UserConversation] = Field(
         ...,
         description="List of user's conversations with metadata",
-        min_items=0,
+        min_length=0,
     )
     total: int = Field(
         ...,
