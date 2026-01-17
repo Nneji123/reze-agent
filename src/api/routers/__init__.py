@@ -5,6 +5,9 @@ only one router: the chat router, which handles all interactions
 with the AI agent through a chat-only interface.
 """
 
-from .chat_router import router as chat_router
+"""API routers package."""
 
-__all__ = ["chat_router"]
+from .chat_router import router as chat_router
+from .common_router import router as common_router
+
+__all__ = ["chat_router", "common_router"]

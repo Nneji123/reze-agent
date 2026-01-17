@@ -1,6 +1,8 @@
 """Configuration settings for Reze AI Agent."""
 
-from pydantic import Field, field_validator
+from typing import Literal
+
+from pydantic import EmailStr, Field, field_validator
 from pydantic_settings import BaseSettings
 
 
@@ -41,7 +43,7 @@ class Settings(BaseSettings):
         env="RESEND_API_KEY",
         description="Resend API key",
     )
-    resend_from_email: str = Field(
+    resend_from_email: EmailStr = Field(
         default="test@example.com",
         env="RESEND_FROM_EMAIL",
         description="Default sender email address",
@@ -58,7 +60,7 @@ class Settings(BaseSettings):
         env="MEMVID_FILE_PATH",
         description="Path to Memvid knowledge base file",
     )
-    memvid_index_kind: str = Field(
+    memvid_index_kind: Literal["basic", "advanced"] = Field(
         default="basic",
         env="MEMVID_INDEX_KIND",
         description="Memvid index kind (basic or advanced)",
@@ -76,29 +78,12 @@ class Settings(BaseSettings):
         description="Enable SQLAlchemy query logging",
     )
 
-    @field_validator("glm_base_url")
+    @field_validator("glm_base_url", "resend_base_url")
     @classmethod
     def validate_base_url(cls, v: str) -> str:
         """Validate base URL format."""
         if not v.startswith(("http://", "https://")):
-            raise ValueError("GLM base URL must start with http:// or https://")
-        return v
-
-    @field_validator("resend_from_email")
-    @classmethod
-    def validate_email(cls, v: str) -> str:
-        """Validate email format."""
-        if "@" not in v or "." not in v:
-            raise ValueError("Invalid email format")
-        return v
-
-    @field_validator("memvid_index_kind")
-    @classmethod
-    def validate_index_kind(cls, v: str) -> str:
-        """Validate index kind."""
-        allowed_kinds = ["basic", "advanced"]
-        if v not in allowed_kinds:
-            raise ValueError(f"Index kind must be one of {allowed_kinds}")
+            raise ValueError("Base URL must start with http:// or https://")
         return v
 
     class Config:
