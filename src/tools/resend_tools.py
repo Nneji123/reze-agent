@@ -34,7 +34,7 @@ class EmailStatusInput(BaseModel):
 
     email_id: str = Field(
         ...,
-        description="REQUIRED: The unique email ID returned by Resend when the email was sent (e.g., 'abc123-xyz789'). Must be obtained from a previous send_email operation.",
+        description="REQUIRED: The unique email ID from Resend (e.g., 'abc123-xyz789'). This can be provided by the user or obtained from a previous send_email operation.",
     )
 
 
