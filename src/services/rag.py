@@ -1,6 +1,6 @@
 """RAG (Retrieval-Augmented Generation) service using Memvid."""
 
-from typing import AsyncGenerator
+from collections.abc import AsyncGenerator
 
 from src.services.ai import ai_service
 from src.services.memvid import memvid_service

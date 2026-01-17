@@ -20,6 +20,8 @@ RUN uv lock && uv sync --no-dev --locked
 
 COPY . /app
 
+RUN uv run scripts/populate_memvid.py
+
 EXPOSE 8000
 
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
