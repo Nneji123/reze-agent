@@ -1,1 +1,1 @@
-# Timi - Errandigo Whatsapp Chatbot Package
+# Reze - Intelligent AI Agent for Resend
