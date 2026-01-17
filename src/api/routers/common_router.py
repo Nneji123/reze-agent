@@ -23,7 +23,7 @@ async def health_check() -> dict[str, str | str]:
 
 
 @router.get("/", response_model=None)
-async def serve_chat_interface():
+async def serve_chat_interface() -> FileResponse | dict[str, str]:
     """Serve chat interface HTML page.
 
     Returns:
@@ -38,7 +38,7 @@ async def serve_chat_interface():
 
 
 @router.get("/favicon.ico", response_model=None)
-async def serve_favicon():
+async def serve_favicon() -> FileResponse | dict[str, str]:
     """Serve favicon.ico file.
 
     Returns:
