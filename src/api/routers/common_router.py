@@ -37,7 +37,7 @@ async def serve_chat_interface() -> FileResponse | dict[str, str]:
     }
 
 
-@router.get("/favicon.ico")
+@router.get("/favicon.ico", response_model=None)
 async def serve_favicon() -> FileResponse | dict[str, str]:
     """Serve favicon.ico file.
 
